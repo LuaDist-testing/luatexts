@@ -1,17 +1,9 @@
--- This file was automatically generated for the LuaDist project.
-
 package = "luatexts"
-version = "0.1.4-1"
--- LuaDist source
+version = "0.1.5-1"
 source = {
-  tag = "0.1.4-1",
-  url = "git://github.com/LuaDist-testing/luatexts.git"
+   url = "git://github.com/agladysh/luatexts.git",
+   branch = "v0.1.5"
 }
--- Original source
--- source = {
---    url = "git://github.com/agladysh/luatexts.git",
---    branch = "v0.1.4"
--- }
 description = {
    summary = "Trivial Lua human-readable binary-safe serialization library",
    homepage = "http://github.com/agladysh/luatexts",
