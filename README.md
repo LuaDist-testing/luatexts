@@ -45,12 +45,12 @@ JSON or XML or sandboxed Lua code.
 
 The luatexts format is defined as follows:
 
-    <unsigned-integer-data:tuple-size>\n
+    <unsigned-data-base-10:tuple-size>\n
     <type1>\n
-    <data1>\n
+    <data1>
     ...
     <typeN>\n
-    <dataN>\n
+    <dataN>
 
 *`\n` here and below may be either `LF` or `CRLF`*
 
@@ -67,33 +67,55 @@ The luatexts format is defined as follows:
   * data: *(none)*
 * Number (double)
   * type: `N`
-  * data: *plain string representation, readable by `strtod`*
-* Number (unsigned integer)
+  * data: *plain string representation, readable by `strtod`*\n
+* Number (unsigned integer, base 10, max: 4294967295)
   * type: `U`
-  * data: *plain string representation, readable by `strtoul`*
+  * data: *[0-9]+*\n
+* Number (unsigned integer, base 16, max: 4294967295)
+  * type: `H`
+  * data: *plain string representation, readable by `strtoul`*\n
+* Number (unsigned integer, base 36, max: 4294967295)
+  * type: `Z`
+  * data: *plain string representation, readable by `strtoul`*\n
 * String (regular)
   * type: `S`
   * data:
-        <unsigned-data:size-in-bytes>\n
-        <string-data, "binary" stuff supported>
+
+              <unsigned-data-base-10:size-in-bytes>\n
+              <string-data, "binary" stuff supported>\n
+
 * String (UTF-8)
   * type: `8`
   * data:
-        <unsigned-data:length-in-characters>\n
-        <string-data, only valid UTF-8 supported, without BOM>
-* Table
+
+              <unsigned-data-base-10:length-in-codepoints>\n
+              <string-data, only valid UTF-8 supported, without BOM>\n
+
+* Fixed-size table
   * type: `T`
   * data:
-        <unsigned-data:array-size>\n
-        <unsigned-data:hash-size>\n
-        <array-item-1>\n
-        ...
-        <array-item-N>\n
-        <hash-key-1>\n
-        <hash-value-1>\n
-        ...
-        <hash-key-N>\n
-        <hash-value-N>
+
+              <unsigned-data-base-10:array-size>\n
+              <unsigned-data-base-10:hash-size>\n
+              <array-item-1>
+              ...
+              <array-item-N>
+              <hash-key-1>
+              <hash-value-1>
+              ...
+              <hash-key-N>
+              <hash-value-N>
+
+* Streaming-friendly table
+  * type: `t`
+  * data:
+
+              <key-1>\n
+              <value-1>\n
+              ...
+              <hash-key-N>
+              <hash-value-N>
+              <nil-value>
 
 ### Notes on table data type:
 
@@ -193,14 +215,14 @@ in the loaded table.
 ### Regular strings vs. UTF-8 strings
 
 Regular strings are treated just as a blob of bytes. Their size
-is specified in *bytes*, and reader implementation never looks
+is specified *in bytes*, and reader implementation never looks
 inside the string data. You can pass any data, including something binary
 as a regular string. (Obviously, you can also pass UTF-8 strings
 as regular strings.)
 
 UTF-8 strings are honestly treated as UTF-8 data. Their size is
-specified in *characters*, and reader implementation does read UTF-8
-characters one-by-one, doing the full validation. You can only pass valid
+specified *in codepoints*, and reader implementation does read UTF-8
+codepoints one-by-one, doing the full validation. You can only pass valid
 UTF-8 text data as an UTF-8 string.
 
 Apart from validation, in Lua implementation it does not matter much,
@@ -217,17 +239,19 @@ Luatexts does not do that for you.
 Mini-FAQ
 --------
 
-1. Why no `save()` in Lua and no `load()` in other language versions?
+1. Why no `load()` in other language versions?
 
     Did not have time to write them yet. Do not need them personally,
     because I always try to feed the data to the consumer
     in the format consumer understands best.
 
-2. What if you need one of these missing functions?
+2. What if I need one of these missing functions?
 
-    * Use luabins or other feature-complete serialization library.
-    * Write it yourself (it is easy!) and send me a pull request.
-    * Ask me nicely.
+   * Use luabins or other feature-complete serialization library.
+
+   * Write it yourself (it is easy!) and send @agladysh a pull request.
+
+   * Ask @agladysh nicely.
 
 3. When to use luatexts and when luabins?
 
@@ -249,6 +273,15 @@ Mini-FAQ
      (see JS API for an example). Again, I would greatly appreciate if you
      will share your implementation with the community,
      but it is not mandatory.
+
+4. Should I use "length in characters" or "length in codepoints"
+  for String (UTF-8)?
+
+    Use length in codepoints (UTF-8 is complex). In JavaScript
+    `String.length()` returns length in codepoints, so that is not a problem.
+
+    If unsure which is which (and using something more aware about bytes
+    that JavaScript), just use String (regular).
 
 API
 ---
@@ -273,12 +306,81 @@ implementation of luatexts data serializer.
 
   Serializes given data tuple. Returns `nil, err` on error.
 
+  Uses fixed-table data type to serialize tables.
+
   Issues:
 
   * Throws `error()` on self-referencing tables.
   * Asserts if detects non-serializable value inside a table.
 
   (Both issues to be fixed in later revisions.)
+
+* `luatexts_lua.save_cat(cat : function, ...) : cat / nil, err`
+
+  Serializes given data tuple to `cat()` function. Throws on error.
+
+      cat(v : string|number) : cat
+
+  Uses streaming-friendly-table data type to serialize tables.
+  Useful for serialization to streams (e.g. files / `stdout`).
+
+* `luatexts_lua.load(data : string) : true, ... / nil, err`
+
+  Returns unserialized data tuple (as multiple return values).
+  Tuples may be of zero values.
+
+  Issues (to be fixed in later revisions):
+
+  * Does not support loading UTF-8 string value type.
+    Use ordinary string value data to pass UTF-8 data instead.
+    (You'll need to know its size in bytes, of course.)
+
+* `luatexts_lua.load_from_buffer(buf : buffer) : true, ... / nil, err`
+
+  Returns unserialized data tuple (as multiple return values).
+  Tuples may be of zero values.
+
+  The `buffer` object must have following methods:
+
+  * `buf:read(bytes : number) : string / nil`
+
+    Reads specified number of bytes from the buffer and returns them as string.
+
+    Returns nil and sets buffer state to failed on error.
+
+  * `buf:readpattern(lua_pattern : string) : string / nil`
+
+    Reads specified Lua pattern from the buffer,
+    and returns captures.
+
+    Pattern is guaranteed to have at least one capture (including `()`
+    positional capture), and to terminate with '\n' character.
+
+    Returns `nil` and sets buffer state to failed on error
+    (including the case when pattern does not match anything,
+    or if there is any unread data in the buffer before pattern).
+
+  * `buf:good() : boolean`
+
+    Returns false if buffer state is failed, true otherwise.
+
+  * `buf:fail(error_message : string) : none`
+
+    Sets buffer state to failed with a given `error_message`.
+
+  * `buf:result() : true | nil, error_message`
+
+    Returns `true` if buffer state is good.
+    Returns `nil, error_message` if buffer state is failed.
+
+  You may find a reference implementation of `buffer` object
+  in the Lua module source code.
+
+  Issues (to be fixed in later revisions):
+
+  * Does not support loading UTF-8 string value type.
+    Use ordinary string value data to pass UTF-8 data instead.
+    (You'll need to know its size in bytes, of course.)
 
 ### JavaScript
 
@@ -314,3 +416,23 @@ HTTP header, or put this tag into the page's `<head>`:
 
 Current JavaScript library implementation works *only* with UTF-8 strings.
 It is up to user to ensure that string encoding is correct.
+
+### PHP
+
+* `Luatexts::save( ... ) : string`
+
+  Serializes its arguments and returns them as a string.
+  If does not know how to serialize value, throws `Exception`.
+  Call without arguments produces a zero-sized tuple.
+
+Type conversion rules for JS --> Lua:
+
+* `null` --> `nil`
+* `boolean` --> `boolean`
+* `number` --> `number`
+* `string` --> `string` (assuming UTF-8 encoding)
+* `array` --> `table` with array part (implicitly saved as 1-based)
+* `function` --> not supported
+* `object` --> not supported
+
+Nested arrays are supported.

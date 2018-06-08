@@ -1,4 +1,4 @@
-// LUATEXTS JavaScript module (v. 0.1.1)
+// LUATEXTS JavaScript module (v. 0.1.4)
 // https://github.com/agladysh/luatexts/
 // Copyright (c) LUATEXTS authors. Licensed under the terms of the MIT license:
 // https://github.com/agladysh/luatexts/tree/master/COPYRIGHT
@@ -36,7 +36,7 @@ function save_number(v) {
 
 // TODO: Ensure the string is in UTF-8 somehow.
 function save_string(v) {
-  return 'U\n' + v.length + '\n' + v + '\n';
+  return '8\n' + v.length + '\n' + v + '\n';
 }
 
 function save_object(v) {
