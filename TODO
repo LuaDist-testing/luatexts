@@ -1,0 +1,11 @@
+TODO:
+-----
+
+ -- Run splint all over the code.
+ -- Add a luajit.ffi implementation.
+ -- luatexts.lua.save() should not throw error() or use assert().
+ -- Write luatexts.lua.load()
+ -- Write JS load().
+ -- Run benchmarks against Luabins, JSON, XML and Lua source.
+ -- Add generative and mutational tests for the UTF-8 data.
+ -- Write better tests.
